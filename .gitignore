@@ -1,0 +1,7 @@
+**/terraform/
+.terraform/
+.terraform.lock.hcl
+.ropeproject
+**/.terraform/
+**/.terraform.lock.hcl
+**/.ropeproject
