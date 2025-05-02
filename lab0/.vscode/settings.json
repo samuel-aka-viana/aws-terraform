@@ -1,0 +1,5 @@
+{
+    "trivy.minimumReportedSeverity": "HIGH",
+    "trivy.offlineScan": true,
+    "trivy.secretScanning": true
+}
