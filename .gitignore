@@ -20,3 +20,7 @@ lab5/terraform.tfstate
 lab5/terraform.tfstate.backup
 lab5/terraform.tfstate.lock
 lab5/terraform.tfstate.lock.hcl
+**/.terraform.tfstate.lock.hcl
+localstack/infra/.terraform.tfstate.lock.info
+localstack/venv/
+localstack/localstack-data/
