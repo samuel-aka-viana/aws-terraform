@@ -1,7 +1,21 @@
 
+###############################################################################
+# 1) S3 Bucket
+###############################################################################
+
 resource "aws_s3_bucket" "csv_bucket" {
   bucket = "csv-batch-bucket"
 }
+
+resource "aws_s3_object" "gold_prefix" {
+  bucket  = aws_s3_bucket.csv_bucket.id
+  key     = "gold/" # cria o “diretório” gold/
+  content = ""      # objeto vazio
+}
+
+###############################################################################
+# 2) IAM Role para o Firehose
+###############################################################################
 
 data "aws_iam_policy_document" "firehose_assume" {
   statement {
@@ -21,7 +35,7 @@ resource "aws_iam_role" "firehose_role" {
 data "aws_iam_policy_document" "firehose_s3_policy" {
   statement {
     effect    = "Allow"
-    actions   = ["s3:*"]
+    actions   = ["s3:*", "kinesis:*"]
     resources = ["*"]
   }
 }
@@ -33,43 +47,116 @@ resource "aws_iam_role_policy" "firehose_s3" {
 }
 
 ###############################################################################
-# 3) Kinesis Data Stream (fonte)
+# 3) Kinesis Data Streams
 ###############################################################################
-resource "aws_kinesis_stream" "csv_stream" {
-  name             = "csv-stream"
-  shard_count      = 1
-  retention_period = 24
+
+resource "aws_kinesis_stream" "albums_stream" {
+  name        = "albums-stream"
+  shard_count = 1
+}
+
+resource "aws_kinesis_stream" "bands_stream" {
+  name        = "bands-stream"
+  shard_count = 1
+}
+
+resource "aws_kinesis_stream" "reviews_stream" {
+  name        = "reviews-stream"
+  shard_count = 1
 }
 
 ###############################################################################
-# 4) Firehose → S3
+# 4) Firehose Delivery Streams → S3
 ###############################################################################
-resource "aws_kinesis_firehose_delivery_stream" "csv_firehose" {
-  name        = "csv-firehose"
-  destination = "extended_s3"
-  depends_on  = [aws_s3_bucket.csv_bucket, aws_iam_role_policy.firehose_s3]
 
+resource "aws_kinesis_firehose_delivery_stream" "albums_firehose" {
+  name        = "albums-firehose"
+  destination = "extended_s3"
 
   kinesis_source_configuration {
-    kinesis_stream_arn = aws_kinesis_stream.csv_stream.arn
+    kinesis_stream_arn = aws_kinesis_stream.albums_stream.arn
     role_arn           = aws_iam_role.firehose_role.arn
   }
 
   extended_s3_configuration {
-    role_arn   = aws_iam_role.firehose_role.arn
-    bucket_arn = aws_s3_bucket.csv_bucket.arn
-
-    prefix              = "landing/" # pasta
-    buffering_size      = 5          # MB
-    buffering_interval  = 60         # s
+    role_arn            = aws_iam_role.firehose_role.arn
+    bucket_arn          = aws_s3_bucket.csv_bucket.arn
+    prefix              = "landing/albums/"
+    buffering_size      = 5
+    buffering_interval  = 60
     compression_format  = "UNCOMPRESSED"
-    error_output_prefix = "errors/!{firehose:yyyy/MM/dd}/"
+    error_output_prefix = "errors/albums/!{firehose:yyyy/MM/dd}/"
+  }
+}
+
+resource "aws_kinesis_firehose_delivery_stream" "bands_firehose" {
+  name        = "bands-firehose"
+  destination = "extended_s3"
+
+  kinesis_source_configuration {
+    kinesis_stream_arn = aws_kinesis_stream.bands_stream.arn
+    role_arn           = aws_iam_role.firehose_role.arn
+  }
+
+  extended_s3_configuration {
+    role_arn            = aws_iam_role.firehose_role.arn
+    bucket_arn          = aws_s3_bucket.csv_bucket.arn
+    prefix              = "landing/bands/"
+    buffering_size      = 5
+    buffering_interval  = 60
+    compression_format  = "UNCOMPRESSED"
+    error_output_prefix = "errors/bands/!{firehose:yyyy/MM/dd}/"
+  }
+}
+
+resource "aws_kinesis_firehose_delivery_stream" "reviews_firehose" {
+  name        = "reviews-firehose"
+  destination = "extended_s3"
+
+  kinesis_source_configuration {
+    kinesis_stream_arn = aws_kinesis_stream.reviews_stream.arn
+    role_arn           = aws_iam_role.firehose_role.arn
+  }
+
+  extended_s3_configuration {
+    role_arn            = aws_iam_role.firehose_role.arn
+    bucket_arn          = aws_s3_bucket.csv_bucket.arn
+    prefix              = "landing/reviews/"
+    buffering_size      = 5
+    buffering_interval  = 60
+    compression_format  = "UNCOMPRESSED"
+    error_output_prefix = "errors/reviews/!{firehose:yyyy/MM/dd}/"
   }
 }
 
 ###############################################################################
 # 5) Outputs úteis
 ###############################################################################
-output "stream_name" { value = aws_kinesis_stream.csv_stream.name }
-output "firehose_name" { value = aws_kinesis_firehose_delivery_stream.csv_firehose.name }
-output "bucket_name" { value = aws_s3_bucket.csv_bucket.bucket }
+
+output "bucket_name" {
+  value = aws_s3_bucket.csv_bucket.bucket
+}
+
+output "albums_stream_name" {
+  value = aws_kinesis_stream.albums_stream.name
+}
+
+output "bands_stream_name" {
+  value = aws_kinesis_stream.bands_stream.name
+}
+
+output "reviews_stream_name" {
+  value = aws_kinesis_stream.reviews_stream.name
+}
+
+output "albums_firehose_name" {
+  value = aws_kinesis_firehose_delivery_stream.albums_firehose.name
+}
+
+output "bands_firehose_name" {
+  value = aws_kinesis_firehose_delivery_stream.bands_firehose.name
+}
+
+output "reviews_firehose_name" {
+  value = aws_kinesis_firehose_delivery_stream.reviews_firehose.name
+}
